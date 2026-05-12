@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico de Atendimento — Qconcursos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ── Paleta base (Resumo usa as variáveis azuis originais, restante usa Questedu) ── */
+:root{
+  --p:#F06292;--o:#FF8DA1;--g:#BE9FE8;--r:#7AC5F1;--b:#A0A0A0;
+  --bg:#FFF0F3;--w:#fff;--border:#F5B8CC;--dark:#111827;--gr:#6B7280;
+  --light:#FDE8F0;--light2:#F3EEFF;--light3:#E8F6FF;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--dark);font-size:13px}
+
+/* NAV */
+.nav{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:0;overflow-x:auto;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(240,98,146,.12)}
+.nb{font-size:12px;padding:12px 13px;border:none;background:transparent;color:var(--gr);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-weight:500}
+.nb:hover{color:var(--p)}.nb.on{color:var(--p);border-bottom-color:var(--p);font-weight:700}
+
+/* LAYOUT */
+.page{padding:20px;max-width:1200px;margin:0 auto}
+.pane{display:none}.pane.on{display:block}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:700px){.g2,.g4{grid-template-columns:1fr}}
+
+/* SECTION HEADER */
+.sh{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--light)}
+.sh-icon{width:36px;height:36px;border-radius:9px;background:var(--p);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.sh-title{font-size:17px;font-weight:800;color:var(--p)}.sh-sub{font-size:11px;color:var(--gr);margin-top:2px}
+
+/* KPI */
+.kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 15px;border-left:4px solid var(--p)}
+.kpi.ok{border-left-color:#BE9FE8}.kpi.warn{border-left-color:#FF8DA1}.kpi.bad{border-left-color:#7AC5F1}.kpi.info{border-left-color:#A0A0A0}
+.kl{font-size:10px;font-weight:700;color:var(--gr);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.kv{font-size:22px;font-weight:800;color:var(--dark);line-height:1.1}
+.ks{font-size:10px;color:var(--gr);margin-top:2px}.kd{font-size:10px;color:#BE9FE8;margin-top:1px;font-style:italic}
+
+/* CARD */
+.card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.ct{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px;padding-bottom:7px;border-bottom:2px solid var(--light)}
+
+/* ALERTAS */
+.al{border-left:4px solid;border-radius:0 9px 9px 0;padding:10px 14px;margin-bottom:9px;font-size:12px;line-height:1.6}
+.al.ok{border-color:#BE9FE8;background:#F3EEFF;color:#4B2C7F}
+.al.warn{border-color:#FF8DA1;background:#FFF0F3;color:#8B1A2E}
+.al.bad{border-color:#7AC5F1;background:#E8F6FF;color:#1A4D6B}
+.al.info{border-color:#A0A0A0;background:#F9F9F9;color:#333}
+.al.primary{border-color:var(--p);background:var(--light);color:#8B1A2E}
+
+/* TABELAS */
+.oa{overflow-x:auto;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:var(--light);color:var(--p);font-weight:700;text-align:left;padding:7px 9px;font-size:10px;white-space:nowrap;border-bottom:2px solid var(--border)}
+td{padding:6px 9px;border-bottom:1px solid #FDE8F0;color:var(--dark);white-space:nowrap}
+tr:hover td{background:#FFF8FA}
+tr.ok2{background:#F3EEFF}tr.bad2{background:#E8F6FF}tr.warn2{background:#FFF0F3}
+
+/* tok / tbad */
+.tok{color:#7C3AED;font-weight:700}.tbad{color:#0077AA;font-weight:700}.teq{color:var(--gr)}
+
+/* BADGE */
+.b{font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;display:inline-block}
+.bok{background:#F3EEFF;color:#4B2C7F}.bwarn{background:#FFF0F3;color:#8B1A2E}
+.bbad{background:#E8F6FF;color:#1A4D6B}.bgr{background:#F3F4F6;color:#374151}
+
+/* CAT-HDR */
+.cat-hdr{background:var(--p);color:#fff;font-weight:700;font-size:12px;padding:9px 13px;border-radius:9px 9px 0 0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-top:6px}
+.cat-hdr:hover{opacity:.92}
+.cat-body{border:1px solid var(--border);border-top:none;border-radius:0 0 9px 9px;margin-bottom:10px}
+.sub-hdr{background:var(--light);padding:7px 13px 7px 22px;font-weight:600;color:var(--p);font-size:11px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.chev{margin-left:auto;transition:transform .2s}.collapsed .chev{transform:rotate(-90deg)}
+
+/* GRÁFICO */
+.cw{position:relative;width:100%}
+.leg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:7px;font-size:11px;color:var(--gr)}
+.leg span{display:flex;align-items:center;gap:4px}
+.leg i{width:9px;height:9px;border-radius:2px;flex-shrink:0;display:inline-block}
+.note{font-size:10px;color:var(--gr);margin-top:6px;font-style:italic;line-height:1.5}
+
+/* DUAL PANEL */
+.dp{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.dph{padding:13px 17px;display:flex;align-items:center;gap:10px}
+.dph.ok{background:linear-gradient(to right,#F3EEFF,#E8D5FF)}
+.dph.bad{background:linear-gradient(to right,#FFF0F3,var(--light))}
+.dph-t{font-size:14px;font-weight:800}
+.dph.ok .dph-t{color:#4B2C7F}.dph.bad .dph-t{color:#8B1A2E}
+.dph-s{font-size:11px;opacity:.65}
+.dpb{padding:12px 17px}
+.di{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--bg)}.di:last-child{border-bottom:none}
+.dic{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.dic.ok{background:#F3EEFF}.dic.bad{background:#E8F6FF}.dic.warn{background:#FFF0F3}
+.dit{font-size:12px;font-weight:700;color:var(--dark);margin-bottom:2px}
+.did{font-size:11px;color:var(--gr);line-height:1.45}
+.dib{font-size:10px;padding:2px 5px;border-radius:6px;font-weight:700;display:inline-block;margin-top:3px}
+.dib-ok{background:#F3EEFF;color:#4B2C7F}
+.dib-bad{background:#E8F6FF;color:#1A4D6B}
+.dib-warn{background:#FFF0F3;color:#8B1A2E}
+
+/* TIMELINE (só usado no P0, mantém paleta azul para o resumo) */
+.tl{position:relative;padding-left:30px;margin-top:8px}
+.tl::before{content:'';position:absolute;left:11px;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,#1E3A6E,#F5821F,#E63946,#4A90D9,#00A651)}
+.tli{position:relative;margin-bottom:18px}
+.tld{position:absolute;left:-24px;top:4px;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #1E3A6E;background:#1E3A6E}
+.tli.ok .tld{background:#00A651;box-shadow:0 0 0 2px #00A651}
+.tli.warn .tld{background:#F5821F;box-shadow:0 0 0 2px #F5821F}
+.tli.bad .tld{background:#E63946;box-shadow:0 0 0 5px rgba(230,57,70,.2),0 0 0 2px #E63946;animation:pulse 2s infinite}
+.tli.win .tld{background:#00A651;box-shadow:0 0 0 5px rgba(0,166,81,.15),0 0 0 2px #00A651}
+.tli.frame .tld{background:#4A90D9;box-shadow:0 0 0 2px #4A90D9}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 5px rgba(230,57,70,.2),0 0 0 2px #E63946}50%{box-shadow:0 0 0 9px rgba(230,57,70,.07),0 0 0 2px #E63946}}
+.tl-era{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;color:#1E3A6E}
+.tli.ok .tl-era{color:#00A651}.tli.warn .tl-era{color:#F5821F}
+.tli.bad .tl-era{color:#E63946}.tli.win .tl-era{color:#00A651}.tli.frame .tl-era{color:#4A90D9}
+.tl-title{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:3px}
+.tl-body{font-size:12px;color:var(--gr);line-height:1.6;margin-bottom:5px}
+.tl-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tlt{font-size:10px;padding:2px 7px;border-radius:9px;font-weight:600}
+.tlt-ok{background:#DCFCE7;color:#14532D}.tlt-bad{background:#FEE2E2;color:#7F1D1D}
+.tlt-warn{background:#FEF3C7;color:#78350F}.tlt-info{background:#DBEAFE;color:#1E40AF}.tlt-gr{background:#F3F4F6;color:#374151}
+
+/* RESUMO P0 mantém paleta original nos KPIs */
+#p0 .kpi{border-left-color:#1E3A6E}
+#p0 .kpi.ok{border-left-color:#00A651}
+#p0 .kpi.warn{border-left-color:#F5821F}
+#p0 .kpi.bad{border-left-color:#E63946}
+#p0 .sh-icon{background:#1E3A6E}
+#p0 .sh-title{color:#1E3A6E}
+#p0 .ct{color:#1E3A6E;border-bottom-color:#EEF2F7}
+#p0 .card{border-color:#D1D5DB}
+#p0 .dph.ok{background:linear-gradient(to right,#F0FDF4,#DCFCE7)}
+#p0 .dph.bad{background:linear-gradient(to right,#FEF2F2,#FEE2E2)}
+#p0 .dph.ok .dph-t{color:#14532D}
+#p0 .dph.bad .dph-t{color:#7F1D1D}
+#p0 .dic.ok{background:#DCFCE7}
+#p0 .dic.bad{background:#FEE2E2}
+#p0 .dic.warn{background:#FEF3C7}
+#p0 .dib-ok{background:#DCFCE7;color:#14532D}
+#p0 .dib-bad{background:#FEE2E2;color:#7F1D1D}
+#p0 .dib-warn{background:#FEF3C7;color:#78350F}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="nb on" onclick="sp('p0',this)">📋 Resumo Estratégico</button>
+  <button class="nb" onclick="sp('p1',this)">📊 Visão Geral</button>
+  <button class="nb" onclick="sp('p2',this)">🔴 Cancelamento</button>
+  <button class="nb" onclick="sp('p3',this)">🟢 Atendimento</button>
+  <button class="nb" onclick="sp('p4',this)">🎯 Próximos Passos</button>
+  <button class="nb" onclick="sp('p8',this)">🎯 Forecast</button>
+  <button class="nb" onclick="sp('pgl',this)">📖 Glossário</button>
+</div>
+
+<div class="page">
+
+<!-- ══ P0 RESUMO ESTRATÉGICO ══ -->
+<div id="p0" class="pane on">
+  <div class="sh"><div class="sh-icon">📋</div><div>
+    <div class="sh-title">Resumo Estratégico</div>
+    <div class="sh-sub">Diagnóstico de Atendimento · Agosto 2025 → Abril 2026 · Comitê de Experiência</div>
+  </div></div>
+
+  <div class="g3">
+    <div class="kpi ok"><div class="kl">BOT Cancelamento Abr/26</div><div class="kv">80%</div><div class="ks">era 20% em ago/25</div><div class="kd">% cancel. sem humano</div></div>
+    <div class="kpi ok"><div class="kl">Humano Total Abr/26</div><div class="kv">3.842</div><div class="ks">era 9.759 em jan/26 (−61%)</div><div class="kd">Conv. chegando ao time</div></div>
+
+    <div class="kpi ok"><div class="kl">NPS · CSAT Abr/26</div><div class="kv">58 · 72%</div><div class="ks">forecast de abril superado ✅</div><div class="kd">Satisfação e recomendação</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">🗓 Linha do Tempo</div>
+    <div class="tl">
+      <div class="tli ok">
+        <div class="tld"></div>
+        <div class="tl-era">Até 2022 · Questões e Parceria Direção</div>
+        <div class="tl-title">Foco em questões e desempenho — atendimento simples</div>
+        <div class="tl-body">Parceria com o Direção. O produto já tinha funcionalidades, mas os alunos usavam principalmente o Portal para fazer questões e analisar desempenho. Atendimentos relativamente simples, com bom CSAT. Filosofia: resolver rápido ou encerrar — sem complexidade de produto.</div>
+        <div class="tl-tags"><span class="tlt tlt-ok">CSAT: alto</span><span class="tlt tlt-gr">Produto: banco de questões</span></div>
+      </div>
+      <div class="tli ok">
+        <div class="tld"></div>
+        <div class="tl-era">2023 · Plano Ilimitado Próprio</div>
+        <div class="tl-title">Fim da parceria com o Direção — entrada do Plano Ilimitado próprio</div>
+        <div class="tl-body">Fim da parceria com o Direção e lançamento do Plano Ilimitado próprio. Atendimento com SLA de 24–48h. Produto crescendo, atendimento ainda relativamente simples.</div>
+        <div class="tl-tags"><span class="tlt tlt-info">SLA 24–48h</span><span class="tlt tlt-gr">Plano Ilimitado próprio</span></div>
+      </div>
+      <div class="tli ok">
+        <div class="tld"></div>
+        <div class="tl-era">2024 · App e Renovação Automática</div>
+        <div class="tl-title">App e renovação automática monetizados + Nupay</div>
+        <div class="tl-body">App e renovação automática monetizados, com Nupay como gateway. Atendimento ainda na Zendesk com SLA de 24–48h. Satisfação começa a dar sinais de queda — NPS já sinalizava, mas as ações não acompanharam. Período também marcado por erros de cobrança da renovação automática mesmo quando o aluno a desabilitava, o que gerou volume relevante de atendimento.</div>
+        <div class="tl-tags"><span class="tlt tlt-info">Zendesk</span><span class="tlt tlt-info">Nupay</span><span class="tlt tlt-info">Renovação automática</span><span class="tlt tlt-warn">Erros de cobrança</span><span class="tlt tlt-warn">Satisfação: início de queda</span></div>
+      </div>
+      <div class="tli warn">
+        <div class="tld"></div>
+        <div class="tl-era">Junho 2025 · Nova Prateleira e Elite</div>
+        <div class="tl-title">Planos Ilimitados + Elite (premium) + Intercom</div>
+        <div class="tl-body">Nova prateleira: Qconcursos como preparatório. Lançamento de todos os Planos Ilimitados e do Elite — premium com ticket mais elevado e múltiplas funcionalidades. Migração para o Intercom apostando no Fin IA. Redução do time. O aluno Elite é muito mais exigente e o Fin não estava preparado para essa complexidade.</div>
+        <div class="tl-tags"><span class="tlt tlt-warn">Elite lançado</span><span class="tlt tlt-warn">Intercom + Fin IA</span><span class="tlt tlt-bad">Time reduzido</span></div>
+      </div>
+      <div class="tli warn">
+        <div class="tld"></div>
+        <div class="tl-era">Novembro 2025 · Orange Fever</div>
+        <div class="tl-title">Black Friday + retirada de acessos suspeitos</div>
+        <div class="tl-body">Black Friday com volume elevado por natureza. A retirada dos acessos de alunos suspeitos gerou um volume extra de contatos de alunos legítimos com acesso bloqueado indevidamente. O time segura a satisfação em 77%.</div>
+        <div class="tl-tags"><span class="tlt tlt-bad">Acessos suspeitos retirados</span><span class="tlt tlt-ok">CSAT: 77%</span></div>
+      </div>
+      <div class="tli bad">
+        <div class="tld"></div>
+        <div class="tl-era">Janeiro–Março 2026 · Boom Crítico</div>
+        <div class="tl-title">Reprecificação + Getnet + erros sistêmicos</div>
+        <div class="tl-body">Reprecificação e entrada da Getnet como novo gateway trouxeram uma mudança crítica: o atendimento de cancelamento, que no Mercado Pago durava em média 5 minutos, passou a demandar quase 20 minutos com a Getnet — exigindo envolvimento do financeiro como N2. Com o alto volume de cancelamentos em janeiro e fevereiro somado a essa complexidade operacional maior, além dos erros internos acumulados, o SLA explodiu. Fev/26: FRT de cancelamento atinge 717h (~30 dias). CSAT cai para 60%.</div>
+        <div class="tl-tags"><span class="tlt tlt-bad">FRT cancel: 717h</span><span class="tlt tlt-bad">CSAT: 60%</span><span class="tlt tlt-warn">Getnet — atend. mais complexo</span><span class="tlt tlt-warn">N2 financeiro</span></div>
+      </div>
+      <div class="tli frame">
+        <div class="tld"></div>
+        <div class="tl-era">Jan–Abr 2026 · Framework + Run the Business</div>
+        <div class="tl-title">Projetos e planos de ação — resultados começam a aparecer</div>
+        <div class="tl-body">Com os projetos e planos de ação mapeados, com a participação ativa das áreas de Experiência, Sucesso, Payops, Produto, Ensino e Conteúdo Público: BOT de autocancelamento, bugs críticos resolvidos, Fin reconfigurado, melhorias de comunicação. Seguiremos com o Run the Business por meio do Comitê de Experiência.</div>
+        <div class="tl-tags"><span class="tlt tlt-info">Framework</span><span class="tlt tlt-info">Run the Business</span><span class="tlt tlt-ok">Bugs resolvidos</span></div>
+      </div>
+      <div class="tli win">
+        <div class="tld"></div>
+        <div class="tl-era">Abril 2026 · Virada</div>
+        <div class="tl-title">BOT em 80% — NPS e CSAT batem o forecast</div>
+        <div class="tl-body">Com os projetos e planos de ação em andamento, os indicadores confirmam a virada: BOT no cancelamento em 80%, tickets formais caem 89%, FRT de 717h para 178h. NPS e CSAT superamos o forecast do mês — não estamos nas metas finais, mas provamos que o plano funciona.</div>
+        <div class="tl-tags"><span class="tlt tlt-ok">BOT cancel: 80% ✅</span><span class="tlt tlt-ok">NPS: 58 — forecast ✅</span><span class="tlt tlt-ok">CSAT: 72% — forecast ✅</span><span class="tlt tlt-ok">Tickets: −89% ✅</span></div>
+      </div>
+      <div class="tli win">
+        <div class="tld"></div>
+        <div class="tl-era">Maio–Junho 2026 · Normalização</div>
+        <div class="tl-title">Backlog zerando — SLA 24–48h ao alcance</div>
+        <div class="tl-body">Com os planos de ação consolidados, SLA de 24–48h ao alcance ainda em maio. A meta de 15 minutos está projetada para junho, quando as contratações de retenção estiverem plenamente operacionais e o Fin IA reativado nas categorias de atendimento.</div>
+        <div class="tl-tags"><span class="tlt tlt-ok">SLA 24–48h: mai/26</span><span class="tlt tlt-info">15 min: jun/26</span><span class="tlt tlt-info">Fin reativado</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">📖 Contexto</div>
+    <div style="font-size:13px;line-height:1.8;color:#374151">
+      <p style="margin-bottom:10px">O Qconcursos nasceu como um banco de questões simples e com atendimento direto. Com o tempo, nos tornamos uma plataforma preparatória completa — Plano Ilimitado, Método Q, plano Elite. Cada evolução trouxe alunos mais exigentes, mais funcionalidades e atendimentos mais complexos, sem que a estrutura operacional tivesse sido ajustada no mesmo ritmo.</p>
+      <p style="margin-bottom:10px">Com os projetos e planos de ação mapeados no Framework + Run the Business, com a participação ativa das áreas de Experiência, Sucesso, Payops, Produto, Ensino e Conteúdo Público, as ações passaram a dar resultado a partir de março: BOT de autocancelamento, resolução de bugs críticos, reconfiguração do Fin e melhorias de comunicação. Em abril, os indicadores confirmaram a virada — NPS e CSAT superamos o forecast do mês.</p>
+      <p>A tendência para maio e junho é de normalização. O SLA de 24–48h está ao alcance ainda em maio com o backlog zerando. A meta de 15 minutos está projetada para junho, quando as contratações de retenção estiverem plenamente operacionais. Seguiremos com o Run the Business por meio do Comitê de Experiência.</p>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="dp">
+      <div class="dph ok"><span style="font-size:19px">📈</span><div><div class="dph-t">O que melhorou</div><div class="dph-s">Resultados das ações realizadas</div></div></div>
+      <div class="dpb">
+        <div class="di"><div class="dic ok">🤖</div><div><div class="dit">Autocancelamento — BOT de 20% para 80%</div><div class="did">Tickets formais: de 4.415 para 477 (−89%). 6.155 cancelamentos encerrados pelo BOT em abr/26.</div><span class="dib dib-ok">−89% tickets formais ✅</span></div></div>
+        <div class="di"><div class="dic ok">👤</div><div><div class="dit">Transbordo humano −61%</div><div class="did">De 9.759 (jan/26) para 3.842 (abr/26). Mesmo time, muito mais eficiência.</div><span class="dib dib-ok">−6.000 atend. humanos/mês ✅</span></div></div>
+        <div class="di"><div class="dic ok">⏱</div><div><div class="dit">FRT cancelamento — 717h para 178h</div><div class="did">Queda de 75% em 2 meses. Força-tarefa: backlog −62,5%, TTC −43%.</div><span class="dib dib-ok">−75% FRT cancel. ✅</span></div></div>
+        <div class="di"><div class="dic ok">💻</div><div><div class="dit">Bugs de plataforma resolvidos</div><div class="did">Volume de erros caiu 73% de jan→abr/26. CSAT Plataforma: 94% em mar/26.</div><span class="dib dib-ok">CSAT 60%→94% ✅</span></div></div>
+        <div class="di"><div class="dic ok">🔑</div><div><div class="dit">Ferramenta interna e bug de senha resolvidos</div><div class="did">Volume de troca de senha −69% após resolução. FRT de 77h para 32h.</div><span class="dib dib-ok">Corrigido mar/26 ✅</span></div></div>
+        <div class="di"><div class="dic ok">🎯</div><div><div class="dit">NPS 58 · CSAT 72% — forecast de abril superado</div><div class="did">Recuperação de 60% (mar/26) para 72% (abr/26). NPS 58 conforme planejado.</div><span class="dib dib-ok">Forecast atingido ✅</span></div></div>
+      </div>
+    </div>
+    <div class="dp">
+      <div class="dph bad"><span style="font-size:19px">💡</span><div><div class="dph-t">Oportunidades</div><div class="dph-s">O que ainda pode melhorar e como</div></div></div>
+      <div class="dpb">
+        <div class="di"><div class="dic ok">🤖</div><div><div class="dit">Reativar Fin IA — ~1.110 humanos/mês evitáveis</div><div class="did">Dúvida sobre planos (91% Fin em ago/25), Troca de e-mail (83%), Localização (41%), Desabilitar renovação e Sol. sobre Cursos. Já funcionou — reativar com base atualizada.</div><span class="dib dib-ok">Maior ROI disponível hoje</span></div></div>
+        <div class="di"><div class="dic warn">🔧</div><div><div class="dit">Alberich + gateways — Erro na compra</div><div class="did">Não vai para o Fin. Dependente de melhorias no Alberich, tratamento de fallback e troca de cartão para o time ser mais resolutivo.</div><span class="dib dib-warn">Ação de produto/engenharia</span></div></div>
+        <div class="di"><div class="dic warn">📲</div><div><div class="dit">Ativação de conta no Elite e Mesa</div><div class="did">Ausência de local para ativar conta amplifica Localização, Troca de senha e e-mail. Melhorias chegando em mai/26.</div><span class="dib dib-warn">Em andamento</span></div></div>
+        <div class="di"><div class="dic bad">📚</div><div><div class="dit">Notificação automática de conteúdo</div><div class="did">Aula indisponível saiu do atendimento (abr/26), mas CSAT continua baixo (50%) — aluno não recebe aviso quando a aula fica disponível. Ação de produto.</div><span class="dib dib-bad">Afeta CSAT diretamente</span></div></div>
+        <div class="di"><div class="dic warn">⭐</div><div><div class="dit">Ativar avaliação pós-BOT</div><div class="did">Avaliações caíram de 1.207 para 232/mês. BOT não solicita CSAT após autocancelamento — sem dados, sem visibilidade real.</div><span class="dib dib-warn">Configurar no Intercom</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ GLOSSÁRIO ══ -->
+<div id="pgl" class="pane">
+  <div class="sh"><div class="sh-icon">📖</div><div><div class="sh-title">Glossário de KPIs</div><div class="sh-sub">O que significa cada indicador usado neste diagnóstico</div></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="card" style="margin-bottom:0"><div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:3px">FRT — First Response Time</div><div style="font-size:11px;font-weight:600;margin-bottom:4px">Tempo para Primeira Resposta Humana</div><div style="font-size:11px;color:var(--gr);line-height:1.6">Tempo que o aluno espera pela primeira mensagem de um humano, após sair do BOT ou Fin IA, excluindo o tempo em automação. <em>Quanto menor, melhor.</em> Meta: &lt;24h (mai) → &lt;15min (jun).</div></div>
+    <div class="card" style="margin-bottom:0"><div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:3px">TTC — Time to Close</div><div style="font-size:11px;font-weight:600;margin-bottom:4px">Tempo para Encerramento pelo Humano</div><div style="font-size:11px;color:var(--gr);line-height:1.6">Tempo que o humano leva para encerrar a conversa desde que a recebeu — inclui toda a resolução e negociação, excluindo tempo de automação. <em>Quanto menor, melhor.</em></div></div>
+    <div class="card" style="margin-bottom:0"><div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:3px">FC% — First Contact Resolution</div><div style="font-size:11px;font-weight:600;margin-bottom:4px">Resolução no Primeiro Contato</div><div style="font-size:11px;color:var(--gr);line-height:1.6">% de conversas encerradas sem o aluno precisar retornar. <em>Quanto maior, melhor.</em> ⚠️ O BOT de autocancelamento pode estar distorcendo — verificar configuração no Intercom.</div></div>
+    <div class="card" style="margin-bottom:0"><div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:3px">CSAT — Customer Satisfaction</div><div style="font-size:11px;font-weight:600;margin-bottom:4px">Satisfação do Cliente</div><div style="font-size:11px;color:var(--gr);line-height:1.6">% de notas 4 ou 5 estrelas (escala 1–5). <em>Quanto maior, melhor.</em> ⚠️ Volume caiu de 1.207 para 232/mês — BOT não solicita avaliação após autocancelamento.</div></div>
+    <div class="card" style="margin-bottom:0"><div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:3px">Fin% · BOT% · Hum% (jornada)</div><div style="font-size:11px;font-weight:600;margin-bottom:4px">Participação de cada agente na jornada</div><div style="font-size:11px;color:var(--gr);line-height:1.6">Multi-count: uma conversa pode ter passado por BOT → Fin → Humano, contando em todos. Fin% alto = IA atuando e evitando transbordo. Hum% alto em categorias automatizáveis = oportunidade.</div></div>
+    <div class="card" style="margin-bottom:0"><div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:3px">NPS — Net Promoter Score</div><div style="font-size:11px;font-weight:600;margin-bottom:4px">Índice de Recomendação</div><div style="font-size:11px;color:var(--gr);line-height:1.6">Probabilidade de o aluno recomendar o Qconcursos. Escala de −100 a +100. Forecast de abr/26: 58 — superado! <em>Quanto maior, melhor.</em></div></div>
+  </div>
+</div>
+
+<!-- ══ P1 VISÃO GERAL ══ -->
+<div id="p1" class="pane">
+  <div class="sh"><div class="sh-icon">📊</div><div><div class="sh-title">Visão Geral</div><div class="sh-sub">118.823 conversas · Agosto/2025 → Abril/2026</div></div></div>
+  <!-- Painel: cenário atual em abr/26 -->
+  <div class="card" style="border-left:4px solid var(--p);background:var(--light);margin-bottom:14px">
+    <div class="ct" style="margin-bottom:12px">📍 Cenário atual — Abril 2026 (onde estamos)</div>
+
+    <!-- Linha 1: distribuição do volume -->
+    <div style="font-size:11px;font-weight:700;color:var(--gr);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Como o volume de 14.817 conversas/mês é distribuído</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="cw" style="height:180px"><canvas id="c_dist_abr"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
+        <div style="background:#fff;border-radius:10px;padding:11px 14px;border-left:4px solid #F06292">
+          <div style="font-size:12px;font-weight:700;color:#111827">🤖 BOT — 72% do volume (10.722 conv.)</div>
+          <div style="font-size:11px;color:var(--gr);margin-top:3px">Encerrado automaticamente. Inclui autocancelamento, triagem e fluxos simples. Não tem FC% mensurável — o aluno encerra sem avaliação.</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:11px 14px;border-left:4px solid #BE9FE8">
+          <div style="font-size:12px;font-weight:700;color:#111827">🧠 Fin IA — 1% do volume (208 conv.)</div>
+          <div style="font-size:11px;color:var(--gr);margin-top:3px">Limite de 700 interações/mês no plano atual — divididas entre resoluções informadas pelo aluno e presumidas pela Intercom (quando o aluno abandona o chat). Em ago/25 era 17% do volume com esse mesmo limite. Reativar nas categorias certas é viável dentro da cota e melhora a eficiência do humano.</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:11px 14px;border-left:4px solid #FF8DA1">
+          <div style="font-size:12px;font-weight:700;color:#111827">👤 Humano — 26% do volume (3.842 conv.)</div>
+          <div style="font-size:11px;color:var(--gr);margin-top:3px">Atendimento (2.340) + Cancelamento/retenção (1.502). Veja a leitura de resolutividade abaixo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Linha 2: resolutividade do humano -->
+    <div style="font-size:11px;font-weight:700;color:var(--gr);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Resolutividade — o que chega ao humano e como é tratado (abr/26)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+
+      <!-- Atendimento -->
+      <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:700;color:var(--p);margin-bottom:8px">📋 Atendimento — 2.340 conv./mês</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1;background:#F3EEFF;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:#7C3AED">56%</div>
+            <div style="font-size:10px;color:var(--gr);margin-top:2px">N1 — resolve<br>no 1º contato</div>
+          </div>
+          <div style="flex:1;background:#FFF0F3;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:var(--p)">44%</div>
+            <div style="font-size:10px;color:var(--gr);margin-top:2px">N2 — retorna<br>ou não resolve</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--gr);line-height:1.5">Em <strong>ago/25</strong>, com Fin IA ativo, o humano resolvia <strong>77% no 1º contato</strong>. Com o Fin escalando para os motivos corretos — dúvidas sobre planos, troca de e-mail, localização de conta — podemos chegar novamente a esse patamar.</div>
+      </div>
+
+      <!-- Cancelamento -->
+      <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:700;color:var(--p);margin-bottom:8px">🔴 Cancelamento — 1.502 conv./mês</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1;background:#F3EEFF;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:#7C3AED">82%</div>
+            <div style="font-size:10px;color:var(--gr);margin-top:2px">N1 — resolvido<br>(retenção ou cancel.)</div>
+          </div>
+          <div style="flex:1;background:#FFF0F3;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:var(--p)">18%</div>
+            <div style="font-size:10px;color:var(--gr);margin-top:2px">N2 — não<br>resolve</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--gr);line-height:1.5">O humano de cancelamento tem <strong>82% de resolutividade</strong> — foca em negociação e retenção. Com o time de retenção dedicado em mai/26, este número tende a melhorar.</div>
+      </div>
+    </div>
+
+    <div class="al info" style="margin-bottom:0">💡 <strong>O que muda com as melhorias:</strong> O Fin IA tem limite de 700 interações/mês — divididas entre resoluções reais e presumidas (abandono de chat). Mesmo com esse limite, usado nas categorias certas (Dúvida sobre planos, Troca de e-mail, Sol. sobre Cursos), o impacto é real: libera o humano para casos mais complexos e tende a elevar o N1% de 56% de volta para ~77% (benchmark ago/25). Paralelamente, as melhorias no BOT, Alberich e comunicação de fluxos ampliam o resultado sem depender do Fin.</div>
+  </div>
+
+<div class="card">
+    <div class="ct">Tabela Resumo — Dados da Intercom</div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>Atend.</th><th>%</th><th>Cancel.</th><th>%</th><th>BOT</th><th>%BOT</th><th>Fin</th><th>%Fin</th><th>Humano</th><th>%Hum</th><th>FRT</th><th>CSAT</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>9.766</td><td>5.828</td><td>60%</td><td>3.938</td><td>40%</td><td>2.288</td><td>23%</td><td>1.628</td><td>17%</td><td>5.837</td><td>60%</td><td>15h</td><td>77%</td></tr>
+      <tr><td>Set/25</td><td>10.418</td><td>6.390</td><td>61%</td><td>4.028</td><td>39%</td><td>1.931</td><td>19%</td><td>1.713</td><td>16%</td><td>6.693</td><td>64%</td><td>25h</td><td>79%</td></tr>
+      <tr><td>Out/25</td><td>11.985</td><td>7.744</td><td>65%</td><td>4.241</td><td>35%</td><td>1.888</td><td>16%</td><td>2.054</td><td>17%</td><td>7.913</td><td>66%</td><td>66h</td><td>79%</td></tr>
+      <tr class="warn2"><td>Nov/25 🟠</td><td>15.511</td><td>11.297</td><td>73%</td><td>4.214</td><td>27%</td><td>4.361</td><td>28%</td><td>1.651</td><td>11%</td><td>9.359</td><td>60%</td><td>140h</td><td>77%</td></tr>
+      <tr><td>Dez/25</td><td>8.855</td><td>6.693</td><td>76%</td><td>2.162</td><td>24%</td><td>2.166</td><td>24%</td><td>1.437</td><td>16%</td><td>5.211</td><td>59%</td><td>63h</td><td>76%</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>15.526</td><td>11.532</td><td>74%</td><td>3.994</td><td>26%</td><td>3.932</td><td>25%</td><td>1.791</td><td>12%</td><td>9.759</td><td>63%</td><td>210h</td><td>75%</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>14.406</td><td>7.824</td><td>54%</td><td>6.582</td><td>46%</td><td>4.479</td><td>31%</td><td>2.090</td><td>15%</td><td>7.773</td><td>54%</td><td>465h</td><td>73%</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>17.539</td><td>8.615</td><td>49%</td><td>8.924</td><td>51%</td><td>9.526</td><td>54%</td><td>256</td><td>1%</td><td>7.681</td><td>44%</td><td>372h</td><td>60%</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>14.817</td><td>7.158</td><td>48%</td><td>7.659</td><td>52%</td><td>10.663</td><td>72%</td><td>208</td><td>1%</td><td>3.901</td><td>26%</td><td>210h</td><td>72%</td></tr>
+    </table></div>
+    <div class="note">🟠 Nov/25 = Orange Fever: Black Friday + retirada de acessos suspeitos. FRT = tempo humano exc. automação. CSAT = % notas 4+5.</div>
+  </div>
+    <div class="g2">
+    <div class="card">
+      <div class="ct">📊 Volume — Atendimento vs Cancelamento</div>
+      <div class="al ok" style="margin-bottom:8px">✅ <strong>Destaque:</strong> Cancelamento passou de 40% do volume (ago/25) para 52% (abr/26) — não porque cresceu, mas porque o BOT absorveu atendimento. Volume humano total caiu 61% desde jan/26.</div>
+      <div class="leg"><span><i style="background:#BE9FE8"></i>Atendimento</span><span><i style="background:#7AC5F1"></i>Cancelamento</span></div>
+      <div class="cw" style="height:180px"><canvas id="c_vol"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ct">🤖 Mix BOT · Fin · Humano</div>
+      <div class="al ok" style="margin-bottom:8px">✅ <strong>Destaque:</strong> BOT passou de 23% (ago/25) para 72% (abr/26). Fin IA está zerado desde mar/26 — reativar em jun/26 é a maior alavanca de eficiência disponível.</div>
+      <div class="leg"><span><i style="background:#F06292"></i>BOT</span><span><i style="background:#BE9FE8"></i>Fin IA</span><span><i style="background:#FF8DA1"></i>Humano</span></div>
+      <div class="cw" style="height:180px"><canvas id="c_mix"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">⏱ SLA — FRT Humano: Atendimento vs Cancelamento (horas)</div>
+    <div class="al warn" style="margin-bottom:8px">⚠️ <strong>Destaque:</strong> FRT de cancelamento atingiu 717h (fev/26) — ~30 dias de espera. Caiu para 178h em abr/26 após força-tarefa. Em 04/05/26: FRT de 2,4h no geral, confirmando que o backlog zerou.</div>
+    <div class="leg"><span><i style="background:#BE9FE8"></i>FRT Atendimento</span><span><i style="background:#7AC5F1"></i>FRT Cancelamento</span></div>
+    <div class="cw" style="height:200px"><canvas id="c_sla"></canvas></div>
+    <div class="note">FRT = First Response Time humano excluindo tempo de automação. 🟠 Nov/25 = Orange Fever (Black Friday + acessos suspeitos). Pico fev/26 = reprecificação + Getnet.</div>
+  </div>
+</div>
+
+<!-- ══ P2 CANCELAMENTO ══ -->
+<div id="p2" class="pane">
+  <div class="sh"><div class="sh-icon">🔴</div><div>
+    <div class="sh-title">Cancelamento | Reembolso</div>
+    <div class="sh-sub">38,5% do volume total · BOT em 80% em abr/26</div>
+  </div></div>
+
+  <!-- Tabela geral PRIMEIRO -->
+    <!-- Leitura rápida -->
+  <div class="card" style="border-left:4px solid var(--p);background:var(--light);margin-bottom:14px">
+    <div class="ct" style="margin-bottom:8px">📋 Leitura do cenário — Cancelamento</div>
+    <div class="al info" style="margin-bottom:10px">ℹ️ <strong>Contexto do pico:</strong> Durante jan–mar/26, o time priorizou atendimentos que impactavam diretamente acesso à plataforma e compras — categorias que bloqueavam o uso do produto. Por isso, o SLA de cancelamento ficou mais alto nesse período: foi uma decisão consciente de triagem para não prejudicar alunos com problemas críticos de acesso enquanto o volume estava no pico.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:12px;color:#374151;line-height:1.65">
+      <div><strong style="color:#F06292">BOT 20%→80%:</strong> O autocancelamento transformou a operação. De 772 cancelamentos encerrados pelo BOT em ago/25 para 6.155 em abr/26. Tickets formais caíram 89% (4.415→477).</div>
+      <div><strong style="color:#7AC5F1">SLA 717h→178h:</strong> O pico de fev/26 (reprecificação + Getnet) gerou ~30 dias de espera. Com a força-tarefa de abr/26, o FRT caiu 75%. Em 04/05: 2,4h.</div>
+      <div><strong style="color:#BE9FE8">Motivos:</strong> 97% dos cancelamentos têm potencial de negociação. Com o time de retenção dedicado operacional em jun/26, o foco humano passa a ser reverter, não só encerrar.</div>
+    </div>
+  </div>
+
+<div class="g2">
+    <div class="card">
+      <div class="ct">Volume cancelamento — BOT vs Humano</div>
+      <div class="al ok" style="margin-bottom:8px">✅ <strong>Destaque:</strong> BOT passou de 20% (ago/25) para 80% (abr/26). Tickets formais humanos: de 4.415 para 477 — queda de 89% em 4 meses.</div>
+      <div class="leg"><span><i style="background:#F06292"></i>BOT enc.</span><span><i style="background:#BE9FE8"></i>Fin enc.</span><span><i style="background:#7AC5F1"></i>Humano enc.</span></div>
+      <div class="cw" style="height:180px"><canvas id="c_cancel_mix"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ct">⏱ SLA — FRT Humano no Cancelamento (horas)</div>
+      <div class="al bad" style="margin-bottom:8px">🔴 <strong>Destaque:</strong> Pico de 717h em fev/26 (~30 dias de espera). Queda para 178h em abr/26 após força-tarefa. Em 04/05: 2,4h.</div>
+      <div class="cw" style="height:180px"><canvas id="c_sla_cancel"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Gráfico de motivos -->
+  <div class="card"><div class="ct">Cancelamento por mês</div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Cancel.</th><th>%total</th><th>BOT enc.</th><th>%</th><th>Fin enc.</th><th>%</th><th>Hum enc.</th><th>%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>3.938</td><td>40%</td><td>772</td><td>20%</td><td>252</td><td>6%</td><td>2.914</td><td>74%</td><td>61%</td><td>15</td><td>27</td></tr>
+      <tr><td>Set/25</td><td>4.028</td><td>39%</td><td>511</td><td>13%</td><td>330</td><td>8%</td><td>3.187</td><td>79%</td><td>61%</td><td>22</td><td>56</td></tr>
+      <tr><td>Out/25</td><td>4.241</td><td>35%</td><td>359</td><td>8%</td><td>307</td><td>7%</td><td>3.575</td><td>84%</td><td>75%</td><td>59</td><td>95</td></tr>
+      <tr class="warn2"><td>Nov/25 🟠</td><td>4.214</td><td>27%</td><td>609</td><td>14%</td><td>168</td><td>4%</td><td>3.437</td><td>82%</td><td>73%</td><td>97</td><td>138</td></tr>
+      <tr><td>Dez/25</td><td>2.162</td><td>24%</td><td>240</td><td>11%</td><td>225</td><td>10%</td><td>1.697</td><td>79%</td><td>69%</td><td>42</td><td>79</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>3.994</td><td>26%</td><td>580</td><td>15%</td><td>298</td><td>7%</td><td>3.116</td><td>78%</td><td>70%</td><td>246</td><td>281</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>6.582</td><td>46%</td><td>2.370</td><td>36%</td><td>613</td><td>9%</td><td>3.599</td><td>55%</td><td>48%</td><td>717</td><td>787</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>8.924</td><td>51%</td><td>5.143</td><td>58%</td><td>3</td><td>0%</td><td>3.778</td><td>42%</td><td>37%</td><td>426</td><td>476</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>7.659</td><td>52%</td><td>6.155</td><td>80%</td><td>2</td><td>0%</td><td>1.502</td><td>20%</td><td>16%</td><td>178</td><td>223</td></tr>
+    </table></div>
+  </div>
+
+  <!-- Gráficos após tabela -->
+  <div class="card">
+    <div class="ct">📊 Principais motivos de cancelamento — volume acumulado ago/25–abr/26</div>
+    <div class="cw" style="height:240px"><canvas id="c_motivos"></canvas></div>
+    <div class="al info" style="margin-top:8px">💡 <strong>Destaque:</strong> Os 4 maiores motivos (cortei gastos, não concordo com renovação, parei de estudar, não sabia da renovação) somam ~14.800 conv. = 97% dos cancelamentos têm potencial de negociação humana. Em abr/26, com o BOT absorvendo 80%, o humano foca em negociação e reversão nos casos que mais importam.</div>
+  </div>
+
+  <!-- Subcategorias -->
+  <div class="cat-hdr" onclick="tog('cs_subs',this)">
+    <span>📋 Top motivos — evolução mensal detalhada</span><span class="chev">▼</span>
+  </div>
+  <div id="cs_subs" class="cat-body" style="display:block"><div style="padding:12px">
+    <div class="al info" style="margin-bottom:10px">BOT%, Fin%, Hum% = participação na jornada (multi-count). FC% = resolvidas no 1º contato. FRT/TTC em horas (exc. automação).</div>
+
+    <div class="sub-hdr">Preciso cortar gastos / Mudança financeira <span class="b bbad">4.182 conv. — Topo 1</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>544</td><td>0%</td><td>75%</td><td>46%</td><td>81%</td><td>14,7</td><td>25,4</td></tr>
+      <tr><td>Set/25</td><td>499</td><td>1%</td><td>42%</td><td>56%</td><td>75%</td><td>22,3</td><td>54,9</td></tr>
+      <tr><td>Out/25</td><td>563</td><td>2%</td><td>49%</td><td>49%</td><td>87%</td><td>58,6</td><td>88,1</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>498</td><td>6%</td><td>23%</td><td>71%</td><td>85%</td><td>92,4</td><td>146</td></tr>
+      <tr><td>Dez/25</td><td>194</td><td>2%</td><td>46%</td><td>52%</td><td>87%</td><td>42,6</td><td>69,8</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>429</td><td>8%</td><td>32%</td><td>59%</td><td>77%</td><td>204</td><td>240</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>690</td><td>28%</td><td>19%</td><td>53%</td><td>57%</td><td>697</td><td>772</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>616</td><td>25%</td><td>0%</td><td>75%</td><td>67%</td><td>490</td><td>544</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>149</td><td>0%</td><td>0%</td><td>100%</td><td>93%</td><td>210</td><td>304</td></tr>
+    </table></div>
+
+    <div class="sub-hdr" style="margin-top:10px">Não concordo com a renovação automática <span class="b bbad">4.102 conv. — Topo 2</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>234</td><td>1%</td><td>74%</td><td>75%</td><td>84%</td><td>16,4</td><td>25,0</td></tr>
+      <tr><td>Out/25</td><td>499</td><td>2%</td><td>44%</td><td>54%</td><td>87%</td><td>62,0</td><td>95,3</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>433</td><td>6%</td><td>22%</td><td>72%</td><td>85%</td><td>96,0</td><td>119</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>380</td><td>6%</td><td>27%</td><td>67%</td><td>81%</td><td>269</td><td>298</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>691</td><td>24%</td><td>17%</td><td>58%</td><td>64%</td><td>753</td><td>796</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>522</td><td>27%</td><td>0%</td><td>73%</td><td>67%</td><td>378</td><td>446</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>710</td><td>51%</td><td>0%</td><td>49%</td><td>41%</td><td>103</td><td>161</td></tr>
+    </table></div>
+    <div class="al ok" style="margin-top:8px">✅ BOT 1%→51%, FRT 378h→103h em abr/26. Autocancelamento absorvendo. FC% ainda baixo (41%) — negociação humana pode melhorar.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Parei de estudar para concursos <span class="b bwarn">3.865 conv. — Topo 3</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>261</td><td>1%</td><td>71%</td><td>71%</td><td>85%</td><td>15,8</td><td>30,4</td></tr>
+      <tr><td>Out/25</td><td>619</td><td>1%</td><td>49%</td><td>49%</td><td>87%</td><td>58,6</td><td>92,3</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>524</td><td>5%</td><td>18%</td><td>77%</td><td>85%</td><td>100</td><td>147</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>430</td><td>2%</td><td>33%</td><td>65%</td><td>88%</td><td>259</td><td>288</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>650</td><td>26%</td><td>21%</td><td>53%</td><td>62%</td><td>761</td><td>821</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>530</td><td>25%</td><td>0%</td><td>75%</td><td>68%</td><td>459</td><td>510</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>114</td><td>1%</td><td>0%</td><td>99%</td><td>96%</td><td>135</td><td>225</td></tr>
+    </table></div>
+
+    <div class="sub-hdr" style="margin-top:10px">Não sabia da renovação automática <span class="b bwarn">2.542 conv. — Topo 4</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>155</td><td>0%</td><td>74%</td><td>79%</td><td>79%</td><td>19,2</td><td>37,9</td></tr>
+      <tr><td>Out/25</td><td>353</td><td>1%</td><td>42%</td><td>58%</td><td>85%</td><td>59,5</td><td>87,4</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>288</td><td>6%</td><td>27%</td><td>67%</td><td>85%</td><td>293</td><td>318</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>418</td><td>29%</td><td>17%</td><td>54%</td><td>59%</td><td>809</td><td>875</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>408</td><td>28%</td><td>0%</td><td>72%</td><td>65%</td><td>389</td><td>459</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>165</td><td>53%</td><td>0%</td><td>47%</td><td>34%</td><td>142</td><td>201</td></tr>
+    </table></div>
+
+    <div class="sub-hdr" style="margin-top:10px">Já passei no concurso desejado <span class="b bgr">2.405 conv. — Topo 5</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>636</td><td>1%</td><td>78%</td><td>32%</td><td>83%</td><td>14,9</td><td>21,0</td></tr>
+      <tr><td>Out/25</td><td>300</td><td>3%</td><td>46%</td><td>51%</td><td>86%</td><td>57,4</td><td>89,8</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>288</td><td>5%</td><td>19%</td><td>76%</td><td>87%</td><td>107</td><td>119</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>203</td><td>6%</td><td>28%</td><td>66%</td><td>86%</td><td>297</td><td>317</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>325</td><td>28%</td><td>22%</td><td>51%</td><td>59%</td><td>812</td><td>865</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>253</td><td>21%</td><td>0%</td><td>79%</td><td>72%</td><td>477</td><td>520</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>38</td><td>5%</td><td>0%</td><td>95%</td><td>89%</td><td>97,0</td><td>184</td></tr>
+    </table></div>
+  </div></div>
+</div>
+
+<!-- ══ P3 ATENDIMENTO + CAT + SUB ══ -->
+<div id="p3" class="pane">
+  <div class="sh"><div class="sh-icon">🟢</div><div>
+    <div class="sh-title">Atendimento — Visão Geral e Subcategorias</div>
+    <div class="sh-sub">Conta · Planos · Plataforma · Conteúdo · Gráfico primeiro, detalhe depois</div>
+  </div></div>
+
+  <!-- Resumo estratégico PRIMEIRO -->
+  <div class="card" style="border-left:4px solid var(--p);background:var(--light)">
+    <div class="ct" style="margin-bottom:8px">📋 Leitura do cenário — ago/25 a abr/26</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;color:#374151;line-height:1.7">
+      <div><strong style="color:#BE9FE8">Conta | Acesso:</strong> crescimento constante com base nova. Ferramenta interna (jan–mar/26) e ausência de ativação no Elite/Mesa amplificaram volume e FRT. Corrigida em mar/26. Fin caiu de 41%→0%.</div>
+      <div><strong style="color:#FF8DA1">Planos | Pagamentos:</strong> Dúvida sobre planos era 91% Fin em ago/25 — hoje 0%. Erro na compra complexo (Getnet, fallback, Alberich). FRT de 264–349h em abr/26.</div>
+      <div><strong style="color:#7AC5F1">Plataforma:</strong> Bugs de questões e cursos/aulas resolvidos em mar/26 — volume caiu 73%, CSAT subiu para 94%. ✅</div>
+      <div><strong style="color:#A0A0A0">Conteúdo:</strong> Principal detrator de CSAT (50% abr/26). Conteúdo indisponível saiu do atendimento mas sem notificação automática. Problema de produto.</div>
+    </div>
+  </div>
+
+  <!-- GRÁFICO 1: Volume por categoria -->
+  <div class="card">
+    <div class="ct">📊 Volume de atendimento por categoria — mês a mês</div>
+    <div class="leg"><span><i style="background:#BE9FE8"></i>Conta | Acesso</span><span><i style="background:#FF8DA1"></i>Planos | Pag.</span><span><i style="background:#7AC5F1"></i>Plataforma</span><span><i style="background:#A0A0A0"></i>Conteúdo</span></div>
+    <div class="cw" style="height:220px"><canvas id="c_vol_cat"></canvas></div>
+    <div class="al warn" style="margin-top:8px">⚠️ <strong>Destaque:</strong> Planos | Pag. é a maior categoria (14.292 conv. acum.). Plataforma teve pico em nov/25 (2.208 conv.) e caiu 73% até abr/26 após resolução dos bugs. Conta|Acesso cresce com a base — ferramenta corrigida em mar/26.</div>
+  </div>
+
+  <!-- GRÁFICO 2: SLA atendimento -->
+  <div class="g2">
+    <div class="card"><div class="ct">⏱ SLA — FRT no momento do transbordo humano, por categoria (horas)</div>
+      <div class="al bad" style="margin-bottom:7px">🔴 <strong>Destaque:</strong> Conteúdo (381h) e Planos (349h) têm o pior FRT em abr/26 — diretamente ligados à queda do Fin IA em mar/26. Plataforma melhorou após resolução dos bugs. Os dados iniciam quando há transbordo ao humano — categorias sem dados em ago/25 = atendidas apenas pelo Fin/BOT.</div>
+      <div class="leg"><span><i style="background:#BE9FE8"></i>Conta</span><span><i style="background:#FF8DA1"></i>Planos</span><span><i style="background:#7AC5F1"></i>Plataforma</span><span><i style="background:#A0A0A0"></i>Conteúdo</span></div>
+      <div class="cw" style="height:200px"><canvas id="c_sla_cat"></canvas></div></div>
+    <div class="card"><div class="ct">🤖 Mix BOT · Fin · Humano — atendimentos encerrados (exc. cancelamento)</div>
+      <div class="al ok" style="margin-bottom:7px">✅ <strong>Destaque:</strong> BOT passou de 26% para 64% no atendimento. Fin IA (lilás) zerou em mar/26 — era 24% em ago/25 com FRT de 14h.</div>
+      <div class="leg"><span><i style="background:#F06292"></i>BOT enc.</span><span><i style="background:#BE9FE8"></i>Fin enc.</span><span><i style="background:#FF8DA1"></i>Humano enc.</span></div>
+      <div class="cw" style="height:200px"><canvas id="c_atend_mix"></canvas></div></div>
+  </div>
+
+
+
+  <!-- Tabela geral atendimento -->
+  <div class="card"><div class="ct">Atendimento por mês — números encerrados por agente</div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Atend.</th><th>%total</th><th>BOT enc.</th><th>%</th><th>Fin enc.</th><th>%</th><th>Hum enc.</th><th>%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25 ★</td><td>5.828</td><td>60%</td><td>1.516</td><td>26%</td><td>1.376</td><td>24%</td><td>2.923</td><td>50%</td><td>38%</td><td>14,0</td><td>81,7</td></tr>
+      <tr><td>Set/25</td><td>6.390</td><td>61%</td><td>1.420</td><td>22%</td><td>1.383</td><td>22%</td><td>3.506</td><td>55%</td><td>41%</td><td>28,3</td><td>103</td></tr>
+      <tr><td>Out/25</td><td>7.744</td><td>65%</td><td>1.529</td><td>20%</td><td>1.747</td><td>23%</td><td>4.338</td><td>56%</td><td>43%</td><td>72,9</td><td>163</td></tr>
+      <tr class="warn2"><td>Nov/25 🟠</td><td>11.297</td><td>73%</td><td>3.752</td><td>33%</td><td>1.483</td><td>13%</td><td>5.922</td><td>52%</td><td>41%</td><td>165</td><td>224</td></tr>
+      <tr><td>Dez/25</td><td>6.693</td><td>76%</td><td>1.926</td><td>29%</td><td>1.212</td><td>18%</td><td>3.514</td><td>53%</td><td>41%</td><td>72,9</td><td>145</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>11.532</td><td>74%</td><td>3.352</td><td>29%</td><td>1.493</td><td>13%</td><td>6.643</td><td>58%</td><td>47%</td><td>193</td><td>242</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>7.824</td><td>54%</td><td>2.109</td><td>27%</td><td>1.477</td><td>19%</td><td>4.174</td><td>53%</td><td>39%</td><td>249</td><td>337</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>8.615</td><td>49%</td><td>4.383</td><td>51%</td><td>253</td><td>3%</td><td>3.903</td><td>45%</td><td>25%</td><td>320</td><td>383</td></tr>
+      <tr class="warn2"><td>Abr/26</td><td>7.158</td><td>48%</td><td>4.567</td><td>64%</td><td>206</td><td>3%</td><td>2.340</td><td>33%</td><td>18%</td><td>231</td><td>234</td></tr>
+    </table></div>
+    <div class="note">★ Ago/25 = benchmark: FRT 14h, Fin 24%, Hum enc. 50%. Hum enc. = conversas de atendimento encerradas por humano (exc. cancelamento). Bate com a visão geral.</div>
+  </div>
+
+  <!-- CONTA | ACESSO -->
+  <div class="cat-hdr" onclick="tog('ct_conta',this)" style="background:#BE9FE8;color:#111827">
+    <span>🔑 Motivos por categoria: Conta | Acesso — 12.233 conversas</span><span class="chev">▼</span>
+  </div>
+  <div id="ct_conta" class="cat-body" style="display:block"><div style="padding:12px">
+    <div class="cw" style="height:180px;margin-bottom:12px"><canvas id="c_bar_conta"></canvas></div>
+    <div class="al info" style="margin-bottom:10px"><strong>Contexto:</strong> Crescimento de "Localização de conta" por três causas: (1) Nov/25: Orange Fever + teste de acesso simultâneo; (2) Base de 1ª compra crescendo com metas batidas; (3) Jan–Mar/26: falha na ferramenta interna que não enviava e-mails de senha, confirmação e compra — e ausência de ativação de conta no Elite/Mesa. Ferramenta corrigida em mar/26. Melhorias de ativação de conta chegando em mai/26. Recuperação de conta excluída zerou com melhorias de informação.</div>
+
+    <div class="sub-hdr">Localização de conta e instruções de acesso <span class="b bbad">5.422 conv. · Fin 41%→0%</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>477</td><td>20%</td><td>41%</td><td>56%</td><td>60%</td><td>13,6</td><td>67,4</td></tr>
+      <tr><td>Set/25</td><td>465</td><td>11%</td><td>19%</td><td>70%</td><td>68%</td><td>28,1</td><td>103</td></tr>
+      <tr><td>Out/25</td><td>592</td><td>15%</td><td>23%</td><td>62%</td><td>64%</td><td>73,4</td><td>139</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>883</td><td>19%</td><td>15%</td><td>66%</td><td>59%</td><td>162</td><td>233</td></tr>
+      <tr><td>Dez/25</td><td>361</td><td>14%</td><td>16%</td><td>70%</td><td>59%</td><td>52,7</td><td>147</td></tr>
+      <tr class="bad2"><td>Jan/26 ⚠️</td><td>617</td><td>13%</td><td>15%</td><td>72%</td><td>55%</td><td>146</td><td>244</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>564</td><td>11%</td><td>17%</td><td>71%</td><td>51%</td><td>105</td><td>220</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>811</td><td>20%</td><td>0%</td><td>80%</td><td>34%</td><td>191</td><td>266</td></tr>
+      <tr class="warn2"><td>Abr/26</td><td>652</td><td>44%</td><td>0%</td><td>56%</td><td>28%</td><td>181</td><td>188</td></tr>
+    </table></div>
+    <div class="al warn" style="margin-top:8px">⚠️ Com fix de mai/26 e ativação de conta no Elite/Mesa, retreinar Fin pode reduzir ~365 humanos/mês.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Troca de e-mail <span class="b bwarn">2.054 conv. · Fin 83%→0% · Quick win</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>150</td><td>5%</td><td>83%</td><td>40%</td><td>76%</td><td>13,8</td><td>48,5</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>248</td><td>7%</td><td>16%</td><td>77%</td><td>55%</td><td>140</td><td>197</td></tr>
+      <tr><td>Jan/26</td><td>289</td><td>9%</td><td>23%</td><td>69%</td><td>70%</td><td>57,3</td><td>113</td></tr>
+      <tr class="ok2"><td>Fev/26</td><td>279</td><td>8%</td><td>21%</td><td>71%</td><td>63%</td><td>41,8</td><td>132</td></tr>
+      <tr class="ok2"><td>Mar/26</td><td>279</td><td>30%</td><td>0%</td><td>70%</td><td>53%</td><td>28,0</td><td>101</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>212</td><td>28%</td><td>0%</td><td>72%</td><td>56%</td><td>32,2</td><td>101</td></tr>
+    </table></div>
+    <div class="al warn" style="margin-top:8px">⚠️ FRT baixo (32h) mas 72% ainda vai ao humano. Retreinar Fin = ~153 humanos/mês evitáveis. Ação rápida de alto impacto.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Troca de senha <span class="b bok">1.517 conv. · Bug + ferramenta resolvidos mar/26 ✅</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>49</td><td>2%</td><td>67%</td><td>55%</td><td>92%</td><td>15,3</td><td>59,0</td></tr>
+      <tr class="bad2"><td>Jan/26 ⚠️</td><td>276</td><td>1%</td><td>23%</td><td>76%</td><td>83%</td><td>76,6</td><td>133</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>464</td><td>3%</td><td>30%</td><td>68%</td><td>80%</td><td>40,1</td><td>142</td></tr>
+      <tr class="ok2"><td>Mar/26 ✅</td><td>251</td><td>48%</td><td>0%</td><td>52%</td><td>45%</td><td>29,6</td><td>121</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>142</td><td>55%</td><td>0%</td><td>45%</td><td>37%</td><td>31,8</td><td>110</td></tr>
+    </table></div>
+    <div class="al ok" style="margin-top:8px">✅ Volume −69% (464→142). BOT 1%→55%. FRT 77h→32h. Ferramenta corrigida em mar/26.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Recuperação de conta excluída <span class="b bok">1.232 conv. · Zerou com informação ✅</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>117</td><td>7%</td><td>78%</td><td>46%</td><td>81%</td><td>15,4</td><td>52,7</td></tr>
+      <tr><td>Jan/26</td><td>232</td><td>6%</td><td>20%</td><td>75%</td><td>75%</td><td>63,7</td><td>136</td></tr>
+      <tr class="ok2"><td>Fev/26</td><td>298</td><td>2%</td><td>25%</td><td>73%</td><td>75%</td><td>38,0</td><td>138</td></tr>
+    </table></div>
+    <div class="al ok" style="margin-top:8px">✅ Volume zerou em mar/abr/26 após melhorias de comunicação e informação.</div>
+  </div></div>
+
+  <!-- PLANOS | PAGAMENTOS -->
+  <div class="cat-hdr" onclick="tog('ct_planos',this)" style="background:#FF8DA1;color:#111827;margin-top:4px">
+    <span>💳 Motivos por categoria: Planos | Pagamentos — 14.292 conversas</span><span class="chev">▼</span>
+  </div>
+  <div id="ct_planos" class="cat-body" style="display:block"><div style="padding:12px">
+    <div class="cw" style="height:160px;margin-bottom:12px"><canvas id="c_bar_planos"></canvas></div>
+    <div class="al info" style="margin-bottom:10px"><strong>Contexto:</strong> <strong>Erro na compra</strong> — alta variabilidade: reprecificação (jan/26), Getnet, troca de cartão, fallback, Alberich. Não vai para o Fin — melhoria passa pelo Alberich e gateways. <strong>Dúvida sobre planos</strong> é 100% automatizável — era 91% Fin em ago/25, 100% em dez/25 com zero humano. Reativar urgente. <strong>Desabilitar renovação automática</strong> também pode ir para o Fin — melhorar comunicação entre "cancelar" e "desabilitar renovação".</div>
+
+    <div class="sub-hdr">Erro na compra <span class="b bbad">4.647 conv. · Melhoria via Alberich e gateways</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>356</td><td>0%</td><td>71%</td><td>66%</td><td>74%</td><td>13,1</td><td>40,8</td></tr>
+      <tr><td>Out/25</td><td>464</td><td>2%</td><td>34%</td><td>64%</td><td>75%</td><td>67,8</td><td>119</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>521</td><td>8%</td><td>17%</td><td>74%</td><td>69%</td><td>169</td><td>213</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>456</td><td>8%</td><td>23%</td><td>69%</td><td>77%</td><td>153</td><td>186</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>461</td><td>6%</td><td>23%</td><td>71%</td><td>74%</td><td>256</td><td>303</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>919</td><td>14%</td><td>0%</td><td>86%</td><td>62%</td><td>245</td><td>263</td></tr>
+      <tr class="bad2"><td>Abr/26</td><td>765</td><td>37%</td><td>0%</td><td>63%</td><td>38%</td><td>264</td><td>269</td></tr>
+    </table></div>
+
+    
+    <div class="al info" style="margin-top:6px;margin-bottom:0">💬 <strong>O que o aluno relata:</strong> Topics: <em>"Troca de cartão"</em> (635 conv.), <em>"Cupom / desconto"</em> (513 conv.). Avaliações: <em>"Serviço que não permite troca de meio de pagamento em 2026"</em> — o aluno espera resolver sozinho e não consegue. <em>"Meu problema foi solucionado com envio de um link específico para renovação"</em> — o humano resolve manualmente. Quando há proposta: <em>"Deu certo a renovação com desconto! Obrigada pela oportunidade de continuar"</em> — oportunidade de retenção ativa no momento do contato.</div>
+<div class="sub-hdr" style="margin-top:10px">Dúvida sobre planos <span class="b bok">2.800 conv. · 100% automatizável ✅ — reativar Fin urgente</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>354</td><td>6%</td><td>91%</td><td>66%</td><td>71%</td><td>11,8</td><td>39,1</td></tr>
+      <tr class="ok2"><td>Dez/25 🏆</td><td>166</td><td>0%</td><td>100%</td><td>0%</td><td>52%</td><td>74,6</td><td>146</td></tr>
+      <tr class="ok2"><td>Jan/26</td><td>486</td><td>1%</td><td>70%</td><td>28%</td><td>69%</td><td>166</td><td>205</td></tr>
+      <tr class="ok2"><td>Fev/26</td><td>397</td><td>1%</td><td>82%</td><td>17%</td><td>79%</td><td>259</td><td>302</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>124</td><td>15%</td><td>2%</td><td>85%</td><td>58%</td><td>317</td><td>337</td></tr>
+      <tr class="bad2"><td>Abr/26</td><td>126</td><td>45%</td><td>0%</td><td>55%</td><td>31%</td><td>349</td><td>378</td></tr>
+    </table></div>
+    <div class="al ok" style="margin-top:8px">✅ Em dez/25: 100% Fin, zero humano. Em jan/fev/26: 70–82% Fin, Hum apenas 17–28%. Reativar é a ação de maior ROI dentro da cota disponível de 700 interações/mês.</div>
+    <div class="al info" style="margin-top:6px">💬 <strong>O que o aluno relata:</strong> Topics predominantes: <em>"[QC] Planos Mensais"</em> (1.761 conv.) — alunos confusos sobre o plano contratado. Nas avaliações: <em>"Fiz uma assinatura ilimitada e estou sendo limitado"</em>, <em>"O preço que apareceu não foi o mesmo que foi contratado anteriormente"</em> — confusão pós-reprecificação. <em>"Então o curso de R$14,00 será pausado e o que comprei continuará sendo cobrado?"</em> — dúvida informativa pura. O Fin resolvia exatamente esse perfil: resposta de informação, sem ação operacional.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Desabilitar renovação automática <span class="b bwarn">2.048 conv. · Pode ir para o Fin + melhor comunicação</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Out/25</td><td>262</td><td>0%</td><td>36%</td><td>64%</td><td>88%</td><td>54,2</td><td>107</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>368</td><td>2%</td><td>26%</td><td>72%</td><td>83%</td><td>238</td><td>265</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>194</td><td>4%</td><td>27%</td><td>70%</td><td>79%</td><td>645</td><td>671</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>428</td><td>16%</td><td>0%</td><td>84%</td><td>45%</td><td>283</td><td>394</td></tr>
+      <tr class="ok2"><td>Abr/26</td><td>313</td><td>19%</td><td>0%</td><td>81%</td><td>54%</td><td>120</td><td>146</td></tr>
+    </table></div>
+    <div class="al ok" style="margin-top:8px">✅ FRT caiu 645h→120h. FC de 83–88% quando bem atendido — o aluno só precisa de confirmação. Fin pode assumir com melhor comunicação de fluxo.</div>
+  </div></div>
+
+  <!-- PLATAFORMA -->
+  <div class="cat-hdr" onclick="tog('ct_plat',this)" style="background:#7AC5F1;color:#111827;margin-top:4px">
+    <span>💻 Motivos por categoria: Plataforma — 9.059 conversas · Bugs resolvidos ✅</span><span class="chev">▼</span>
+  </div>
+  <div id="ct_plat" class="cat-body" style="display:block"><div style="padding:12px">
+    <div class="cw" style="height:160px;margin-bottom:12px"><canvas id="c_bar_plat"></canvas></div>
+    <div class="al ok" style="margin-bottom:10px">✅ <strong>Resultado geral:</strong> Bugs críticos resolvidos. Volume de erros caiu 73% de jan→abr/26. CSAT de Plataforma atingiu 94% em mar/26 — melhor resultado da série histórica.</div>
+
+    <div class="sub-hdr">Erro em questões <span class="b bok">2.404 conv. · Fin 79% em ago/25 · Bug resolvido ✅</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>185</td><td>18%</td><td>79%</td><td>46%</td><td>57%</td><td>13,4</td><td>181</td></tr>
+      <tr><td>Out/25</td><td>460</td><td>10%</td><td>52%</td><td>39%</td><td>60%</td><td>44,0</td><td>162</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>726</td><td>9%</td><td>61%</td><td>30%</td><td>62%</td><td>118</td><td>160</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>297</td><td>25%</td><td>13%</td><td>62%</td><td>60%</td><td>283</td><td>384</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>310</td><td>14%</td><td>17%</td><td>69%</td><td>54%</td><td>297</td><td>449</td></tr>
+    </table></div>
+    <div class="note">Mar/abr/26: zerado — bug resolvido ✅</div>
+    <div class="al info" style="margin-top:6px;margin-bottom:0">💬 <strong>O que o aluno relata:</strong> Classifica como "erro de questão" o que geralmente é <strong>bug de interface</strong> — botão de responder travado, carregamento lento, problema de cache. <em>"Não é erro de questão! É bug na plataforma. Aperto mil vezes no botão para responder e não funciona."</em> O Fin resolvia isso orientando limpeza de cache e troca de navegador.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Erro em cursos e aulas — conteúdo de plataforma <span class="b bok">1.854 conv. · Fin 87% ago/25 · Bug resolvido ✅</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>176</td><td>1%</td><td>87%</td><td>51%</td><td>78%</td><td>13,2</td><td>97,6</td></tr>
+      <tr><td>Set/25</td><td>226</td><td>1%</td><td>34%</td><td>65%</td><td>84%</td><td>28,2</td><td>147</td></tr>
+      <tr><td>Out/25</td><td>433</td><td>3%</td><td>14%</td><td>83%</td><td>80%</td><td>59,9</td><td>240</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>300</td><td>7%</td><td>12%</td><td>82%</td><td>72%</td><td>277</td><td>387</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>298</td><td>5%</td><td>14%</td><td>81%</td><td>75%</td><td>292</td><td>371</td></tr>
+    </table></div>
+    <div class="note">Mar/abr/26: zerado — bugs resolvidos ✅</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Erro / Queda da plataforma <span class="b bwarn">451 conv. · Precisa passar pelo humano</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>20</td><td>15%</td><td>65%</td><td>35%</td><td>55%</td><td>12,5</td><td>211</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>160</td><td>9%</td><td>19%</td><td>72%</td><td>66%</td><td>105</td><td>162</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>61</td><td>11%</td><td>7%</td><td>82%</td><td>74%</td><td>326</td><td>421</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>42</td><td>7%</td><td>14%</td><td>79%</td><td>79%</td><td>426</td><td>507</td></tr>
+    </table></div>
+  </div></div>
+
+  <!-- CONTEÚDO -->
+  <div class="cat-hdr" onclick="tog('ct_cont',this)" style="background:#A0A0A0;color:#fff;margin-top:4px">
+    <span>📚 Motivos por categoria: Conteúdo — 6.094 conversas · CSAT 50% · Problema de produto</span><span class="chev">▼</span>
+  </div>
+  <div id="ct_cont" class="cat-body" style="display:block"><div style="padding:12px">
+    <div class="cw" style="height:140px;margin-bottom:12px"><canvas id="c_bar_cont"></canvas></div>
+    <div class="al bad" style="margin-bottom:8px"><strong>Contexto:</strong> Principal detrator de CSAT e segundo maior problema após cancelamento. "Conteúdo indisponível em Aulas" saiu do fluxo em abr/26 — aluno solicita e aguarda sem notificação. Há também um volume de erros que chegam como <strong>"problemas de questão"</strong> mas são falhas de filtro ou navegação — o aluno não sabe nomear o problema, o que mascara o diagnóstico real. Não é problema de atendimento — é de produto. Próximas ações: notificação automática + melhoria de filtros.</div>
+    <div class="al info" style="margin-bottom:10px">💬 <strong>O que o aluno relata:</strong> Topics dominantes: <em>"Falta de conteúdo em cursos"</em> (2.864 conv.), seguido de combinações com <em>"Apostilas digitais"</em>, <em>"Legislação"</em> e específicos de edital. O aluno chega dizendo que "não encontrou" — às vezes é conteúdo não disponível, às vezes é um problema de filtro que impede de encontrar o que existe. Essa ambiguidade dificulta a resolução: o atendimento não sabe se é curadoria, bug de filtro ou conteúdo ainda não disponibilizado. Resolver os filtros vai destravar parte desse volume sem precisar disponibilizar novo conteúdo.</div>
+
+    <div class="sub-hdr">Solicitações ou dúvidas sobre Cursos <span class="b bbad">2.308 conv. · FRT 381h em abr/26</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>114</td><td>4%</td><td>69%</td><td>74%</td><td>69%</td><td>11,5</td><td>94,7</td></tr>
+      <tr><td>Out/25</td><td>278</td><td>28%</td><td>19%</td><td>53%</td><td>54%</td><td>70,7</td><td>184</td></tr>
+      <tr class="warn2"><td>Nov/25</td><td>281</td><td>40%</td><td>7%</td><td>53%</td><td>40%</td><td>298</td><td>405</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>379</td><td>34%</td><td>8%</td><td>59%</td><td>46%</td><td>273</td><td>355</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>265</td><td>25%</td><td>16%</td><td>59%</td><td>53%</td><td>306</td><td>425</td></tr>
+      <tr class="bad2"><td>Mar/26</td><td>326</td><td>13%</td><td>1%</td><td>87%</td><td>32%</td><td>412</td><td>515</td></tr>
+      <tr class="bad2"><td>Abr/26</td><td>207</td><td>41%</td><td>0%</td><td>59%</td><td>23%</td><td>381</td><td>421</td></tr>
+    </table></div>
+    <div class="al warn" style="margin-top:8px">⚠️ Fin era 69% em ago/25. Catálogo atualizado no Fin pode absorver ~122 humanos/mês.</div>
+
+    <div class="sub-hdr" style="margin-top:10px">Conteúdo indisponível em Aulas <span class="b bbad">1.370 conv. · Saiu do atendimento abr/26 · CSAT ainda baixo</span></div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>Total</th><th>BOT%</th><th>Fin%</th><th>Hum%</th><th>FC%</th><th>FRT (h)</th><th>TTC (h)</th></tr>
+      <tr class="ok2"><td>Ago/25</td><td>133</td><td>3%</td><td>75%</td><td>66%</td><td>65%</td><td>13,7</td><td>91,3</td></tr>
+      <tr class="bad2"><td>Jan/26</td><td>251</td><td>3%</td><td>12%</td><td>85%</td><td>62%</td><td>260</td><td>328</td></tr>
+      <tr class="bad2"><td>Fev/26</td><td>179</td><td>2%</td><td>16%</td><td>82%</td><td>69%</td><td>307</td><td>391</td></tr>
+      <tr class="ok2"><td>Abr/26 ✅</td><td>14</td><td>36%</td><td>0%</td><td>64%</td><td>7%</td><td>375</td><td>26,4</td></tr>
+    </table></div>
+    <div class="al bad" style="margin-top:8px">🔴 Volume zerou (ação correta). FC% de 7% indica retorno do aluno. Próximo passo: notificação automática de disponibilização = melhoria direta de CSAT.</div>
+  </div></div>
+</div>
+
+<!-- ══ P4 ESTRATÉGIA ══ -->
+<div id="p4" class="pane">
+  <div class="sh"><div class="sh-icon">🎯</div><div>
+    <div class="sh-title">Próximos Passos</div>
+    <div class="sh-sub">Ações do Comitê de Experiência — Abril e Maio 2026</div>
+  </div></div>
+
+  <div class="card" style="border-left:4px solid var(--p);background:var(--light);margin-bottom:14px">
+    <div style="font-size:12px;color:#374151;line-height:1.75">Em ago/25, com Fin IA ativo e ferramentas funcionando, o atendimento era eficiente — FRT de 14h, FC% de 77% no humano. O cenário mudou com a complexidade do produto, a redução do Fin e os problemas de ferramenta. Os quadrantes abaixo mostram o que precisa ser retomado: onde o Fin já funcionou, onde o humano ainda é necessário, e onde a resolução no primeiro contato caiu.</div>
+  </div>
+
+  <!-- FIN IA — Reativação esta semana -->
+  <div class="card">
+    <div class="ct">🤖 Fin IA — Reativação em andamento (semana 11–15/mai)</div>
+    <div class="al ok" style="margin-bottom:12px">✅ Já começamos esta semana. Com limite de 700 interações/mês, o critério foi usar nas categorias de maior retorno por interação — dúvida informativa, sem necessidade de ação operacional.</div>
+    <div class="oa"><table>
+      <tr><th>Categoria</th><th>Subcategoria</th><th>Fin% em ago/25</th><th>Potencial (~conv./mês)</th><th>Por quê funciona</th></tr>
+      <tr class="ok2"><td>Planos | Pag.</td><td>Dúvida sobre planos</td><td>91%</td><td>~280</td><td>Dúvida informativa pura — o Fin respondia e fechava sem humano</td></tr>
+      <tr class="ok2"><td>Planos | Pag.</td><td>Desabilitar renovação auto.</td><td>36%</td><td>~190</td><td>Aluno só precisa de confirmação — Fin orienta e confirma</td></tr>
+      <tr class="ok2"><td>Conta | Acesso</td><td>Troca de e-mail</td><td>83%</td><td>~153</td><td>Fluxo simples, FRT já baixo — Fin reduz o humano desnecessário</td></tr>
+      <tr class="ok2"><td>Conta | Acesso</td><td>Localização de conta</td><td>41%</td><td>~150</td><td>Após fix da ferramenta (mar/26) e melhorias de ativação (mai/26)</td></tr>
+      <tr class="ok2"><td>Conteúdo</td><td>Sol. sobre Cursos</td><td>69%</td><td>~120</td><td>Catálogo atualizado no Fin — dúvida sobre disponibilidade</td></tr>
+    </table></div>
+    <div class="note">Total estimado: ~893 atendimentos humanos/mês evitáveis dentro da cota de 700 interações. Priorizar pelas subcategorias de maior volume e menor complexidade.</div>
+  </div>
+
+  <!-- Referência -->
+  <div>
+    <div class="card" style="margin-bottom:0;border-top:3px solid #BE9FE8">
+      <div class="ct" style="color:#BE9FE8">✅ Referência — Como era em ago/25</div>
+      <div style="font-size:11px;color:var(--gr);margin-bottom:8px">Com Fin ativo e ferramentas OK — o padrão a recuperar.</div>
+      <table>
+        <tr><th>Subcategoria</th><th>FC%</th><th>FRT</th><th>Fin%</th></tr>
+        <tr class="ok2"><td>Troca de senha</td><td>92%</td><td>15h</td><td>67%</td></tr>
+        <tr class="ok2"><td>Troca de e-mail</td><td>76%</td><td>14h</td><td>83%</td></tr>
+        <tr class="ok2"><td>Dúvida sobre planos</td><td>71%</td><td>12h</td><td>91%</td></tr>
+        <tr class="ok2"><td>Erro em cursos e aulas</td><td>78%</td><td>13h</td><td>87%</td></tr>
+        <tr class="ok2"><td>Sol. sobre Cursos</td><td>69%</td><td>12h</td><td>69%</td></tr>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Ações do Comitê -->
+  <div class="card" style="margin-top:14px">
+    <div class="ct">📋 Ações do Comitê de Experiência — Abril 2026</div>
+    <div class="al ok" style="margin-bottom:12px">✅ Foco em primeiro acesso, conteúdo e encerramento do backlog de atendimento.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Primeiro Acesso</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Múltiplas melhorias no fluxo de ativação de conta: comunicação prévia à confirmação de e-mail, correção de redirecionamento incoerente, remoção de loopings, melhoria no fluxo de exclusão de conta e contextualização na página de questões do Elite. Os resultados devem aparecer em maio.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Conteúdo</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Correção dos gabaritos comentados de Direito e início das correções dos conteúdos indisponíveis por problema de produto/Tech.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Backlog de Atendimento</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Força-tarefa em abril tratou 3.600+ conversas represadas — backlog de 4.000+ caiu para ~1.500 (−62,5%). TTC médio caiu 43% (18d14h → 10d6h). Backlog zerado em mai/26.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Conteúdo Público e Filtros</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Correção de filtros de cargos, extração e correção de nomes genéricos/erros no banco, melhoria no campo de busca de cargos. Reduz volume de "não encontrei" que chegava ao atendimento.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">🚀 Próximos Passos — Maio 2026 em andamento</div>
+    <div class="al info" style="margin-bottom:12px">ℹ️ Com o backlog zerado e o SLA voltando ao normal, o foco passa para resolver as causas raiz dos maiores volumes de atendimento.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Primeiro Acesso — continuação</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Finalização do fluxo de confirmação de e-mail com a subida do novo modal de confirmação. Resultado esperado: redução do volume em Localização de conta, Troca de e-mail e Troca de senha.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Conteúdo</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Resolução dos erros de vinculação de conteúdo na plataforma, monitoramento de indisponibilidade, conferência dos erros identificados pela Tech com o time de Ensino, elaboração do doc com regras de montagem de curso e produção de conteúdo, inclusão dos vídeos de apostila digital em videoaulas, continuação das ações em gabaritos comentados, dashboard para auxiliar o time de Sucesso e notificação automática ao aluno quando a aula ficar disponível. Resultado esperado: redução das reclamações sobre conteúdo indisponível e gabaritos comentados, atendimento sobre conteúdo mais rápido e resolutivo.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Planos e Pagamentos</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Troca de cartão pelo aluno dentro da plataforma já concluída. Em andamento: melhoria de fallback, visibilidade do gateway no Alberich e adequação da interface à Getnet. Resultado esperado: redução do volume em Erro de compra, atendimento financeiro mais rápido e resolutivo.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Fin IA</div>
+        <div style="font-size:11px;color:#374151;line-height:1.7">
+          Reativação em andamento esta semana (11–15/mai) com melhoria dos docs e motivos resolutivos. Revisão em junho para avaliar o impacto e decidir se ampliamos os casos cobertos ou ajustamos a abordagem para o Q3. Resultado esperado: diminuição do transbordo humano para os motivos inseridos no Fin IA.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="p8" class="pane">
+  <div class="sh"><div class="sh-icon">🎯</div><div><div class="sh-title">Forecast</div><div class="sh-sub">Cenário maio–junho/2026 · Força-tarefa de backlog + novo time</div></div></div>
+  <div class="card">
+    <div class="ct">Força-tarefa de backlog — Resultado abril 2026</div>
+    <div class="al info" style="margin-bottom:12px">ℹ️ Em abril, além de atender o volume novo, o time dedicou esforço para tratar o <strong>passivo acumulado</strong> desde fev/mar/26. A força-tarefa tratou 3.600+ conversas represadas em paralelo com as novas entradas. O resultado foi uma queda de 62,5% no total de conversas aguardando resposta, e uma queda de 43% no tempo médio de encerramento (TTC — o quanto o humano leva para fechar uma conversa desde que a recebeu).</div>
+    <div class="g2" style="margin-bottom:12px">
+      <div style="background:var(--bg);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--p)">3.600+</div>
+        <div style="font-size:12px;font-weight:600;margin-top:4px">Conversas do passivo tratadas</div>
+        <div style="font-size:11px;color:var(--gr);margin-top:2px">2.600 cancelamentos + 1.000 outras categorias</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:#BE9FE8">−62,5%</div>
+        <div style="font-size:12px;font-weight:600;margin-top:4px">Redução do backlog</div>
+        <div style="font-size:11px;color:var(--gr);margin-top:2px">De 4.000+ para ~1.500 · TTC médio: −43% (18d14h → 10d6h)</div>
+      </div>
+    </div>
+    <div class="oa"><table>
+      <tr><th>Categoria</th><th>Março (respondidas)</th><th>Abril (respondidas)</th><th>Variação</th></tr>
+      <tr class="ok2"><td>Cancelamento</td><td>3.270</td><td>4.988</td><td class="tok">+53% ✅</td></tr>
+      <tr><td>Conta | Acesso</td><td>815</td><td>519</td><td class="teq">−36% (volume caiu)</td></tr>
+      <tr class="ok2"><td>Planos | Pagamentos</td><td>985</td><td>988</td><td class="tok">Estável ✅</td></tr>
+      <tr class="ok2"><td>Plataforma</td><td>544</td><td>159</td><td class="tok">−71% (bugs resolvidos) ✅</td></tr>
+      <tr class="ok2"><td>Conteúdo</td><td>243</td><td>291</td><td class="tok">+20% ✅</td></tr>
+    </table></div>
+    <div class="note">Estratégia mai/26: atender 1 conversa antiga + 1 nova para não prejudicar ninguém durante a transição de backlog. Backlog deve zerar esta semana (05/05).</div>
+  </div>
+  <div class="card">
+    <div class="ct">Estrutura do time — maio/junho 2026</div>
+    <div class="al info" style="margin-bottom:10px">Cenário: ~5.700 atendimentos no backlog (excl. cancelamento) + entrada de ~1.000–1.200/mês. Nataly sai da retenção e volta ao atendimento. Sem feriados contabilizados.</div>
+    <div class="oa"><table>
+      <tr><th>Função</th><th>Pessoas</th><th>Observação</th></tr>
+      <tr><td>Atendimento geral</td><td>3 colaboradores full</td><td>Nataly volta da retenção em mai/26</td></tr>
+      <tr class="warn2"><td>Jovem Aprendiz</td><td>1 (24h → 40h/sem)</td><td>Ampliar contrato para suportar o volume</td></tr>
+      <tr><td>Estagiária</td><td>1</td><td>—</td></tr>
+      <tr class="bad2"><td>Camila</td><td>Férias — 15 dias em mai/26</td><td>−1 full por metade do mês</td></tr>
+      <tr><td>Retenção (novos)</td><td>2 focados em reversão</td><td>Contratações em processo</td></tr>
+      <tr><td>Reclame Aqui</td><td>1 dedicado</td><td>—</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <div class="ct">Projeção mai–jun/26 e revisão T3</div>
+    <div class="oa"><table>
+      <tr><th>Mês</th><th>FRT projetado</th><th>Ação chave</th></tr>
+      <tr class="warn2"><td>Mai/26</td><td>24–48h</td><td>Backlog zerando · JA em 40h · Camila volta na metade do mês</td></tr>
+      <tr class="ok2"><td>Jun/26</td><td>&lt; 15 min</td><td>Contratações de retenção operacionais + Fin reativado para Planos e Conta</td></tr>
+      <tr><td>T3 (jul–set/26)</td><td>Revisão</td><td>Avaliar em junho se cenário demanda reformulação para o terceiro trimestre</td></tr>
+    </table></div>
+    <div class="al ok" style="margin-top:10px">💡 A inserção do Fin IA para Planos|Pag. e Conta|Acesso é a ação de maior impacto para viabilizar o SLA de 15 minutos sem novas contratações. Estimativa: ~1.110 atendimentos humanos/mês evitáveis. A revisão de junho indicará se o cenário está estável ou precisa de ajuste para o T3.</div>
+  </div>
+</div>
+
+</div><!-- page -->
+
+<script>
+const M=['Ago/25','Set/25','Out/25','Nov/25','Dez/25','Jan/26','Fev/26','Mar/26','Abr/26'];
+const C={p:'#F06292',o:'#FF8DA1',g:'#BE9FE8',r:'#7AC5F1',b:'#A0A0A0',gr:'#A0A0A0'};
+const STK={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:true,ticks:{autoSkip:false,maxRotation:45,font:{size:9}}},y:{stacked:true,ticks:{font:{size:9}}}}};
+const LIN={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,maxRotation:45,font:{size:9}}},y:{ticks:{font:{size:9}}}}};
+function mk(id,type,ds,opts){const el=document.getElementById(id);if(el)new Chart(el,{type,data:{labels:M,datasets:ds},options:opts||LIN});}
+mk('c_vol','bar',[
+  {data:[5828,6390,7744,11297,6693,11532,7824,8615,7158],backgroundColor:C.g,stack:'s'},
+  {data:[3938,4028,4241,4214,2162,3994,6582,8924,7659],backgroundColor:C.r,stack:'s'}],STK);
+mk('c_mix','bar',[
+  {data:[2288,1931,1888,4361,2166,3932,4479,9526,10663],backgroundColor:C.p,stack:'s'},
+  {data:[1628,1713,2054,1651,1437,1791,2090,256,208],backgroundColor:C.g,stack:'s'},
+  {data:[5837,6693,7913,9359,5211,9759,7774,7681,3901],backgroundColor:C.o,stack:'s'}],STK);
+mk('c_sla','line',[
+  {data:[14,28,73,165,73,193,249,320,231],borderColor:C.g,backgroundColor:'rgba(190,159,232,.15)',tension:.3,pointRadius:4,fill:true,borderWidth:2.5},
+  {data:[15,22,59,97,42,246,717,426,178],borderColor:C.r,backgroundColor:'rgba(122,197,241,.1)',tension:.3,pointRadius:5,fill:false,borderWidth:2.5}],{
+  responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+  scales:{x:{ticks:{autoSkip:false,maxRotation:45,font:{size:9}}},y:{ticks:{font:{size:9}},title:{display:true,text:'Horas',font:{size:9}}}}});
+mk('c_csat','line',[
+  {data:[83,85,79,74,73,78,65,55,75],borderColor:C.r,backgroundColor:'transparent',tension:.3,pointRadius:3},
+  {data:[72,74,84,78,68,64,73,69,64],borderColor:C.o,backgroundColor:'transparent',tension:.3,pointRadius:3},
+  {data:[60,74,80,82,79,74,86,94,67],borderColor:C.g,backgroundColor:'transparent',tension:.3,pointRadius:3},
+  {data:[55,61,70,69,79,52,67,64,50],borderColor:C.b,backgroundColor:'transparent',tension:.3,pointRadius:3}]);
+mk('c_cancel','bar',[
+  {data:[772,511,359,609,240,580,2370,5143,6155],backgroundColor:C.p,stack:'s'},
+  {data:[252,330,307,168,225,298,613,3,2],backgroundColor:C.g,stack:'s'},
+  {data:[2914,3187,3575,3437,1697,3116,3599,3778,1502],backgroundColor:C.r,stack:'s'}],STK);
+mk('c_frt_c','bar',[{data:[15,22,59,97,42,246,717,426,178],
+  backgroundColor:['#BE9FE8','#BE9FE8','#A0A0A0','#FF8DA1','#A0A0A0','#FF8DA1','#7AC5F1','#7AC5F1','#FF8DA1']}]);
+mk('c_atend','bar',[
+  {data:[1516,1420,1529,3752,1926,3352,2109,4383,4567],backgroundColor:C.p,stack:'s'},
+  {data:[1376,1383,1747,1483,1212,1493,1477,253,206],backgroundColor:C.g,stack:'s'},
+  {data:[2923,3506,4338,5922,3514,6643,4174,3903,2340],backgroundColor:C.o,stack:'s'}],STK);
+mk('c_frt_split','line',[
+  {data:[14,28,73,165,73,193,249,320,231],borderColor:C.g,backgroundColor:'transparent',tension:.3,pointRadius:4,borderWidth:2.5},
+  {data:[15,22,59,97,42,246,717,426,178],borderColor:C.r,backgroundColor:'transparent',tension:.3,pointRadius:4,borderWidth:2.5}]);
+
+// P2 - Cancelamento
+mk('c_sla_cancel','line',[
+  {data:[15.3,21.7,58.7,96.8,41.7,245.6,717.0,426.0,178.0],
+   borderColor:'#7AC5F1',backgroundColor:'rgba(122,197,241,.15)',
+   tension:.3,pointRadius:5,fill:true,borderWidth:2.5,
+   pointBackgroundColor:['#BE9FE8','#BE9FE8','#A0A0A0','#FF8DA1','#A0A0A0','#FF8DA1','#7AC5F1','#7AC5F1','#FF8DA1']}
+],{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+   scales:{x:{ticks:{autoSkip:false,maxRotation:45,font:{size:9}}},y:{ticks:{font:{size:9}},title:{display:true,text:'Horas de espera',font:{size:9}}}}});
+
+mk('c_cancel_mix','bar',[
+  {data:[772,511,359,609,240,580,2370,5143,6155],backgroundColor:'#F06292',stack:'s'},
+  {data:[252,330,307,168,225,298,613,3,2],backgroundColor:'#BE9FE8',stack:'s'},
+  {data:[2914,3187,3575,3437,1697,3116,3599,3778,1502],backgroundColor:'#7AC5F1',stack:'s'}],STK);
+
+mk('c_cancel_botpct','line',[
+  {data:[20,13,8,14,11,15,36,58,80],
+   borderColor:'#F06292',backgroundColor:'rgba(240,98,146,.12)',
+   tension:.3,pointRadius:5,fill:true,borderWidth:2.5}
+],{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+   scales:{x:{ticks:{autoSkip:false,maxRotation:45,font:{size:9}}},y:{ticks:{font:{size:9},callback:v=>v+'%'},max:100}}});
+
+// Gráfico motivos cancelamento (barras horizontais)
+const motEl=document.getElementById('c_motivos');
+if(motEl) new Chart(motEl,{type:'bar',data:{
+  labels:['Preciso cortar gastos','Não concordo c/ renovação','Parei de estudar','Não sabia da renovação','Já passei no concurso','Outro curso / plataforma'],
+  datasets:[{data:[4182,4102,3865,2542,2405,1661],
+    backgroundColor:['#F06292','#FF8DA1','#BE9FE8','#7AC5F1','#A0A0A0','#F06292'],
+    borderRadius:4}]
+},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false}},
+  scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:10}}}}}});
+
+// P3 - Atendimento por categoria
+mk('c_vol_cat','bar',[
+  {data:[903,969,1165,1886,942,1792,2003,1485,1088],backgroundColor:'#BE9FE8',stack:'s'},
+  {data:[1035,1288,1529,1732,1381,2492,2075,1518,1242],backgroundColor:'#FF8DA1',stack:'s'},
+  {data:[534,940,1498,2208,653,1155,1241,434,396],backgroundColor:'#7AC5F1',stack:'s'},
+  {data:[304,603,590,661,670,1124,862,742,538],backgroundColor:'#A0A0A0',stack:'s'}],STK);
+
+// SLA por categoria (FRT estimado por categoria)
+mk('c_sla_cat','line',[
+  {data:[null,null,null,162,53,146,105,191,181],borderColor:'#BE9FE8',backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true},
+  {data:[null,null,null,177,85,153,256,245,264],borderColor:'#FF8DA1',backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true},
+  {data:[13,26,44,118,120,283,297,86,187],borderColor:'#7AC5F1',backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true},
+  {data:[12,33,71,298,117,273,306,412,381],borderColor:'#A0A0A0',backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true}
+],{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+   scales:{x:{ticks:{autoSkip:false,maxRotation:45,font:{size:9}}},y:{ticks:{font:{size:9}},title:{display:true,text:'FRT médio (h)',font:{size:9}}}}});
+
+mk('c_atend_mix','bar',[
+  {data:[1516,1420,1529,3752,1926,3352,2109,4383,4567],backgroundColor:'#F06292',stack:'s'},
+  {data:[1376,1383,1747,1483,1212,1493,1477,253,206],backgroundColor:'#BE9FE8',stack:'s'},
+  {data:[2923,3506,4338,5922,3514,6643,4174,3903,2340],backgroundColor:'#FF8DA1',stack:'s'}],STK);
+
+
+// P1 - Distribuição abr/26 (donut)
+const distEl = document.getElementById('c_dist_abr');
+if(distEl) new Chart(distEl,{type:'doughnut',data:{
+  labels:['BOT — 72%','Fin IA — 1%','Humano — 26%'],
+  datasets:[{data:[10663,208,3901],backgroundColor:['#F06292','#BE9FE8','#FF8DA1'],borderWidth:3,borderColor:'#fff'}]
+},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+  plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12,padding:8}}}}});
+
+// P3 - Gráficos de barras subcategoria (volumes acumulados por subcategoria)
+const barOpts = (labels, data, colors) => ({
+  type:'bar',
+  data:{labels, datasets:[{data, backgroundColor:colors, borderRadius:4}]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:10}}}}}
+});
+
+const cBarConta = document.getElementById('c_bar_conta');
+if(cBarConta) new Chart(cBarConta, barOpts(
+  ['Localização de conta','Troca de e-mail','Troca de senha','Rec. conta excluída'],
+  [5422,2054,1517,1232],
+  ['#F06292','#FF8DA1','#BE9FE8','#A0A0A0']
+));
+
+const cBarPlanos = document.getElementById('c_bar_planos');
+if(cBarPlanos) new Chart(cBarPlanos, barOpts(
+  ['Erro na compra','Dúvida sobre planos','Desabilitar renovação auto.'],
+  [4647,2800,2048],
+  ['#7AC5F1','#BE9FE8','#FF8DA1']
+));
+
+const cBarPlat = document.getElementById('c_bar_plat');
+if(cBarPlat) new Chart(cBarPlat, barOpts(
+  ['Erro em questões','Erro cursos e aulas','Dúv. sobre questões','Queda da plataforma'],
+  [2404,1854,727,451],
+  ['#F06292','#FF8DA1','#BE9FE8','#A0A0A0']
+));
+
+const cBarCont = document.getElementById('c_bar_cont');
+if(cBarCont) new Chart(cBarCont, barOpts(
+  ['Sol. sobre Cursos','Conteúdo indisp. Aulas'],
+  [2308,1370],
+  ['#F06292','#FF8DA1']
+));
+
+function sp(id,btn){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  const el=document.getElementById(id);if(el)el.classList.add('on');
+  btn.classList.add('on');
+}
+function tog(id,btn){
+  const el=document.getElementById(id);if(!el)return;
+  const vis=el.style.display==='none'||el.style.display==='';
+  el.style.display=vis?'block':'none';
+  btn.classList.toggle('collapsed',!vis);
+}
+</script>
+</body>
+</html>
